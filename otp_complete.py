@@ -2,16 +2,16 @@ import re
 import os
 import base64
 import json
+
+from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from google.auth.transport.requests import Request
 
 # Define the scope of the access (read-only for Gmail)
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
-# Authenticate and create the Gmail API service.
 def authenticate_gmail():
     creds = None
     if os.path.exists('token.json'):
@@ -31,7 +31,6 @@ def authenticate_gmail():
         print(f'An error occurred: {error}')
         return None
 
-# List the recent email messages.
 def list_recent_messages(service, max_results=1):
     try:
         results = service.users().messages().list(userId='me', maxResults=max_results, labelIds=['INBOX']).execute()
@@ -47,20 +46,21 @@ def list_recent_messages(service, max_results=1):
 
 # Extract the plain text body from the email.
 def extract_otp(body):
-    # Regex pattern to find a 6-digit OTP
+    # find a 6-digit OTP
     otp_pattern = r'\b\d{6}\b'
     match = re.search(otp_pattern, body)
     if match:
         return match.group(0)  # Return the matched OTP
     return None
+    
 def get_message_body(service, msg_id):
     try:
         message = service.users().messages().get(userId='me', id=msg_id).execute()
-        payload = message['payload']
         headers = payload['headers']
+        payload = message['payload']
         OTP = extract_otp(message['snippet'])
         from_ = ""        
-        # Extract subject, from, and date from headers
+
         for header in headers:
             if header['name'] == 'From':
                 from_ = header['value']
@@ -70,7 +70,6 @@ def get_message_body(service, msg_id):
     except HttpError as error:
         print(f'An error occurred: {error}')
 
-# Main function to run the program
 def main():
     service = authenticate_gmail()
     
@@ -78,10 +77,7 @@ def main():
         print('Authentication failed.')
         return
 
-    # Fetch the most recent 1 emails
     messages = list_recent_messages(service, max_results=1)
-
-    # Get the plain text body for each of the recent messages
     if messages:
         for msg in messages:
             msg_id = msg['id']
